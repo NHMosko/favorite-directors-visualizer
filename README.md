@@ -1,5 +1,6 @@
 # Favorite Directors Visualizer
 Use it at [nhmosko.github.io/favorite-directors-visualizer/](https://nhmosko.github.io/favorite-directors-visualizer/)
+
 This is the frontend counterpart to [Favorite Directors](https://github.com/NHMosko/favorite_directors).
 
 ### Upload your favorite-directors.json file to create a table and filter it by whichever row you want.
