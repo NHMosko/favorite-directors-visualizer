@@ -52,6 +52,8 @@ tbody tr:hover td {
     background: #e3e3e9;
 }
 
+
+
 @media (max-width: 900px) {
     table {
         width: 95%;

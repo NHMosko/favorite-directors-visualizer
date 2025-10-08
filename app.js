@@ -1,7 +1,7 @@
 (() => {
     const input = document.getElementById('file');
     const table = document.createElement('table');
-    let jsonData = [];
+    let directorsData = [];
     let sortKey = 'movie_count'; // Default sort key
     let ascending = false;       // Default descending
 
@@ -13,17 +13,79 @@
         if (!input.files || input.files.length === 0) return;
 
         const file = input.files[0];
-        const reader = new FileReader();
 
-        reader.onload = (e) => {
-            const text = e.target.result;
-            jsonData = JSON.parse(text);
-            // Keep default sort on new data
-            sortAndRender();
-        };
-
-        reader.readAsText(file);
+		parseCSV(file);
     });
+
+	const MIN_MOVIE_TRESHOLD = 3;
+    const RATING_IDX = 1;
+    let rawArray = [];
+    let directorMap = new Map();
+
+    function parseCSV(file) {
+        var reader = new FileReader();
+        reader.onload = function (evt) {
+            let csvString = evt.target.result;
+            csvArray = parseToArray(csvString);
+            csvArray.shift();
+            for (row of csvArray) {
+                rawArray.push([row[RATING_IDX], extractDirectors(row)]);
+            }
+            for (row of rawArray) {
+                let rating = parseInt(row[0])
+                let directors = row[1]
+                if (directors) {
+                    for (director of directors) {
+                        //directorMap["Hitchcock"]: [7, ~60] !!!instead of average use total score, calculate average on display
+                        //key: dirname = [movie_count, ~total_rating]
+                        if (directorMap.has(director)) {
+                            let countAndRating = directorMap.get(director)
+                            countAndRating[0]++
+                            countAndRating[1] += rating
+                            directorMap.set(director, countAndRating)
+                        } else {
+                            directorMap.set(director, [1, rating])
+                        }
+                    }
+                }
+            }
+            directorsData = convertMapToArray(directorMap);
+			sortAndRender();
+        };
+        reader.readAsText(file);
+    }
+
+    function parseToArray(csvString){
+        //Split the array into rows, then split these rows into cells
+        return csvString.split('\n').map(row => {
+            return row.split(',')
+        })
+    }
+
+    function extractDirectors(row){
+        let directors = [];
+        for (let i = row.length - 1; i >= 0; i--) {
+            if (isNaN(row[i][1])) {
+                directors.push(row[i]);
+            } else {
+                return directors;
+            }
+        }
+    }
+
+    function convertMapToArray(directorMap) {
+        let out = [];
+        for (const [key, value] of directorMap) {
+            if (value[0] >= MIN_MOVIE_TRESHOLD && key != "") {
+                out.push({
+                    "director_name": key.slice(1, -1),
+                    "movie_count": value[0],
+                    "avg_rating": (value[1]/value[0]).toFixed(1),
+                });
+            }
+        }
+        return out;
+    }
 
     function buildTable(json) {
         table.innerHTML = '';
@@ -86,8 +148,8 @@
     }
 
     function sortAndRender() {
-        if (!sortKey || jsonData.length === 0) return;
-        const sorted = [...jsonData].sort((a, b) => {
+        if (!sortKey || directorsData.length === 0) return;
+        const sorted = [...directorsData].sort((a, b) => {
             let va = a[sortKey], vb = b[sortKey];
 
             const na = parseFloat(va), nb = parseFloat(vb);
