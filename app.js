@@ -78,7 +78,7 @@
         for (const [key, value] of directorMap) {
             if (value[0] >= MIN_MOVIE_TRESHOLD && key != "") {
                 out.push({
-                    "director_name": key.slice(1, -1),
+                    "director_name": key.replace("\"", "").replace("\"", ""),
                     "movie_count": value[0],
                     "avg_rating": (value[1]/value[0]).toFixed(1),
                 });
