@@ -22,8 +22,18 @@
 	const TMDB_API_KEY = "66a9164d7957ac6ededc5e316bd9338c"
     let rawArray = [];
     let directorMap = new Map();
+	let origin = ""
 
     function parseCSV(file) {
+		// Reset everything
+		rawArray = [];
+		directorMap = new Map();
+		directorsData = [];
+		origin = "";
+		sortKey = 'movie_count';
+		ascending = false;
+		table.innerHTML = "";
+
         var reader = new FileReader();
         reader.onload = async function (evt) {
             let csvString = evt.target.result;
@@ -31,12 +41,14 @@
             let headers = csvArray.shift();
 			if (headers[0].startsWith("Const")) {
 				console.log("IMDb")
+				origin = "imdb"
 				for (row of csvArray) {
 					rawArray.push([row[RATING_IDX], extractDirectors(row)]);
 				}
 			} else if (headers[0].startsWith("Date")) {
 				console.log("Letterboxd")
-				document.getElementById("loader").style.display = "block";
+				origin = "letterboxd"
+				document.getElementById("loader_holder").style.display = "block";
 				for (row of csvArray) {
 					if (row.length > 1) {
 						console.log("Fetching films")
@@ -46,7 +58,7 @@
 						}
 					}
 				}
-				document.getElementById("loader").style.display = "none";
+				document.getElementById("loader_holder").style.display = "none";
 				//console.log(rawArray);
 			} else {
 				console.log("Unsupported file")
@@ -225,12 +237,29 @@
                 if (v === null || v === undefined) v = '';
                 if (typeof v === 'object') v = JSON.stringify(v);
                 td.textContent = v;
+				if (origin === "letterboxd" && k === "avg_rating") {
+					td.textContent += generateStars(v)
+				}
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
         });
         table.appendChild(tbody);
     }
+
+	function generateStars(rating) {
+		let stars = " "
+		for (let i = 0; i < Math.floor(rating); i++) {
+			stars += "★"
+		}
+		if (rating % 1 >= 0.5) {
+			stars += "⯪"
+		}
+		while (stars.length < 6) {
+			stars += "☆"
+		}
+		return stars
+	}
 
     function sortAndRender() {
         if (!sortKey || directorsData.length === 0) return;
