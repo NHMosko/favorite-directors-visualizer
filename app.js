@@ -25,7 +25,7 @@
 
     function parseCSV(file) {
         var reader = new FileReader();
-        reader.onload = function (evt) {
+        reader.onload = async function (evt) {
             let csvString = evt.target.result;
             csvArray = parseToArray(csvString);
             let headers = csvArray.shift();
@@ -36,11 +36,18 @@
 				}
 			} else if (headers[0].startsWith("Date")) {
 				console.log("Letterboxd")
+				document.getElementById("loader").style.display = "block";
 				for (row of csvArray) {
 					if (row.length > 1) {
-						rawArray.push([row[row.length - 1], getDirectorFromTMDb(row)]);
+						console.log("Fetching films")
+						let directors = await getDirectorFromTMDb(row)
+						if (directors.length > 0) {
+							rawArray.push([row[row.length - 1], directors]);
+						}
 					}
 				}
+				document.getElementById("loader").style.display = "none";
+				//console.log(rawArray);
 			} else {
 				console.log("Unsupported file")
 				return
@@ -89,7 +96,7 @@
     }
 
 	async function getDirectorFromTMDb(row) {
-		await new Promise(r => setTimeout(r, 400));
+		//await new Promise(r => setTimeout(r, 400));
 
 		let titleAndYear = []
 		if (row[1][0] != "\"") {
@@ -116,22 +123,21 @@
 			const creditsRes = await fetch(creditsUrl);
 			const creditsData = await creditsRes.json();
 			if (creditsData) {
-				let directorsSet = new Set();
+				let directors = [];
 				for (person of creditsData.crew) {
 					if (person.job === "Director") {
-						directorsSet.add(person.name)
+						directors.push(person.name);
 					}
 				}	
-				//console.log("Movie:", data.results[0].title, "director:", directorsSet)
-				return directorsSet
+				//console.log("Movie:", data.results[0].title, "director:", directors)
+				return directors;
 			}
 
 		} else {
 			console.warn('Movie not found or request failed:', title, year);
 		}
 		
-		console.warn("Director getting failed:", title, year)
-		return
+		return []
 	}
 
 	function extractTitleAndYear(row) {
