@@ -19,15 +19,13 @@
 
 	const MIN_MOVIE_TRESHOLD = 3;
     const RATING_IDX = 1;
-	const TMDB_API_KEY = "66a9164d7957ac6ededc5e316bd9338c"
+	const TMDB_API_KEY = "4445fe4f91eba86a59b725296d635e76"
     let rawArray = [];
-    let directorMap = new Map();
 	let origin = ""
 
     function parseCSV(file) {
 		// Reset everything
 		rawArray = [];
-		directorMap = new Map();
 		directorsData = [];
 		origin = "";
 		sortKey = 'movie_count';
@@ -42,20 +40,28 @@
 			if (headers[0].startsWith("Const")) {
 				console.log("IMDb")
 				origin = "imdb"
-				for (row of csvArray) {
+				for (let row of csvArray) {
 					rawArray.push([row[RATING_IDX], extractDirectors(row)]);
 				}
 			} else if (headers[0].startsWith("Date")) {
 				console.log("Letterboxd")
 				origin = "letterboxd"
 				document.getElementById("loader_holder").style.display = "block";
-				for (row of csvArray) {
+				let progressEnd = csvArray.length;
+				let progress = 0;
+				loader.value = progress;
+				loader.max = progressEnd;
+				for (let row of csvArray) {
 					if (row.length > 1) {
 						console.log("Fetching films")
-						let directors = await getDirectorFromTMDb(row)
+						let directorsPromise = getDirectorFromTMDb(row)
+						mapDirectors(rawArray, 1); //show everyone
+						let directors = await directorsPromise
 						if (directors.length > 0) {
 							rawArray.push([row[row.length - 1], directors]);
 						}
+						progress++;
+						loader.value = progress;
 					}
 				}
 				document.getElementById("loader_holder").style.display = "none";
@@ -64,35 +70,40 @@
 				console.log("Unsupported file")
 				return
 			}
-
-            for (row of rawArray) {
-                let rating = parseInt(row[0])
-                let directors = row[1]
-                if (directors) {
-                    for (director of directors) {
-                        //directorMap["Hitchcock"]: [7, ~60] !!!instead of average use total score, calculate average on display
-                        //key: dirname = [movie_count, ~total_rating]
-                        if (directorMap.has(director)) {
-                            let countAndRating = directorMap.get(director)
-                            countAndRating[0]++
-                            countAndRating[1] += rating
-                            directorMap.set(director, countAndRating)
-                        } else {
-                            directorMap.set(director, [1, rating])
-                        }
-                    }
-                }
-            }
-            directorsData = convertMapToArray(directorMap);
-			sortAndRender();
+			mapDirectors(rawArray);
         };
         reader.readAsText(file);
     }
 
+	function mapDirectors(rawArray, minMovieTreshold = MIN_MOVIE_TRESHOLD) {
+		let directorMap = new Map();
+		for (let row of rawArray) {
+			let rating = parseInt(row[0])
+			let directors = row[1]
+			if (directors) {
+				for (let director of directors) {
+					//directorMap["Hitchcock"]: [7, ~60] !!!instead of average use total score, calculate average on display
+					//key: dirname = [movie_count, ~total_rating]
+					if (directorMap.has(director)) {
+						let countAndRating = directorMap.get(director)
+						countAndRating[0]++
+						countAndRating[1] += rating
+						directorMap.set(director, countAndRating)
+					} else {
+						directorMap.set(director, [1, rating])
+					}
+				}
+			}
+		}
+		directorsData = convertMapToArray(directorMap, minMovieTreshold);
+		sortAndRender();
+	}
+
+
     function parseToArray(csvString){
         //Split the array into rows, then split these rows into cells
         return csvString.split('\n').map(row => {
-            return row.trim().split(',')
+            return row.trim().split(',');
         })
     }
 
@@ -118,6 +129,8 @@
 		}
 		let title = titleAndYear[0]
 		let year = titleAndYear[1]
+
+		fetchingText.innerText = `Fetching director data from TMDb...\n Movie: ${title} (${year})`
 		//console.log(titleAndYear)
 
 		//Edge case:
@@ -136,7 +149,7 @@
 			const creditsData = await creditsRes.json();
 			if (creditsData) {
 				let directors = [];
-				for (person of creditsData.crew) {
+				for (let person of creditsData.crew) {
 					if (person.job === "Director") {
 						directors.push(person.name);
 					}
@@ -170,10 +183,10 @@
 		return [title, year]
 	}
 
-    function convertMapToArray(directorMap) {
+    function convertMapToArray(directorMap, minMovieTreshold = MIN_MOVIE_TRESHOLD) {
         let out = [];
         for (const [key, value] of directorMap) {
-            if (value[0] >= MIN_MOVIE_TRESHOLD && key != "") {
+            if (value[0] >= minMovieTreshold && key != "") {
                 out.push({
                     "director_name": key.replace("\"", "").replace("\"", ""),
                     "movie_count": value[0],
