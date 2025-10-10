@@ -19,6 +19,7 @@
 
 	const MIN_MOVIE_TRESHOLD = 3;
     const RATING_IDX = 1;
+	const TMDB_API_KEY = "66a9164d7957ac6ededc5e316bd9338c"
     let rawArray = [];
     let directorMap = new Map();
 
@@ -40,8 +41,6 @@
 						rawArray.push([row[row.length - 1], getDirectorFromTMDb(row)]);
 					}
 				}
-				console.log(rawArray)
-				return
 			} else {
 				console.log("Unsupported file")
 				return
@@ -89,15 +88,50 @@
         }
     }
 
-	function getDirectorFromTMDb(row) {
+	async function getDirectorFromTMDb(row) {
+		await new Promise(r => setTimeout(r, 400));
+
 		let titleAndYear = []
 		if (row[1][0] != "\"") {
 			titleAndYear = [row[1], row[2]]
 		} else {
 			titleAndYear = extractTitleAndYear(row)
 		}
+		let title = titleAndYear[0]
+		let year = titleAndYear[1]
 		//console.log(titleAndYear)
-		return titleAndYear
+
+		//Edge case:
+		if (title === "The VelociPastor") {
+			year = 2018
+		}
+		//
+
+		const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}&year=${year}`);
+		const data = await res.json();
+		if (data.results && data.results[0]) {
+			const movieId = data.results[0].id;
+
+			const creditsUrl = `https://api.themoviedb.org/3/movie/${movieId}/credits?api_key=${TMDB_API_KEY}`;
+			const creditsRes = await fetch(creditsUrl);
+			const creditsData = await creditsRes.json();
+			if (creditsData) {
+				let directorsSet = new Set();
+				for (person of creditsData.crew) {
+					if (person.job === "Director") {
+						directorsSet.add(person.name)
+					}
+				}	
+				//console.log("Movie:", data.results[0].title, "director:", directorsSet)
+				return directorsSet
+			}
+
+		} else {
+			console.warn('Movie not found or request failed:', title, year);
+		}
+		
+		console.warn("Director getting failed:", title, year)
+		return
 	}
 
 	function extractTitleAndYear(row) {
